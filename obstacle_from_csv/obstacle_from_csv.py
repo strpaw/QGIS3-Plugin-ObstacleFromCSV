@@ -21,15 +21,18 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
+from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QVariant
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtWidgets import QAction, QWidget, QMessageBox
+from qgis.core import *
 
 # Initialize Qt resources from file resources.py
 from .resources import *
 # Import the code for the dialog
 from .obstacle_from_csv_dialog import ObstacleFromCSVDialog
 import os.path
+import csv
+from .aviation_gis_tools.coordinate import *
 
 
 class ObstacleFromCSV:
@@ -179,6 +182,81 @@ class ObstacleFromCSV:
                 action)
             self.iface.removeToolBarIcon(action)
 
+    @staticmethod
+    def get_obstacle_fields():
+        """ Create fields for output layer. """
+        attributes = [
+            QgsField("ctry_name", QVariant.String, len=150),
+            QgsField("obst_ident", QVariant.String, len=50),
+            QgsField("obst_name", QVariant.String, len=100),
+            QgsField("lon_src", QVariant.String, len=30),
+            QgsField("lat_src", QVariant.String, len=30),
+            QgsField("agl", QVariant.Double),
+            QgsField("amsl", QVariant.Double),
+            QgsField("vert_uom", QVariant.String, len=2),
+            QgsField("obst_type", QVariant.String, len=30)
+        ]
+
+        fields = QgsFields()
+        for attribute in attributes:
+            fields.append(attribute)
+        return fields
+
+    @staticmethod
+    def source_coordinate_to_dd(lon_src, lat_src):
+        """ Convert source obstacle coordinates to  decimal degrees. """
+        lon = Coordinate(src_angle=lon_src, angle_type=AT_LONGITUDE)
+        lat = Coordinate(src_angle=lat_src, angle_type=AT_LATITUDE)
+        lon_dd = lon.convert_to_dd()
+        lat_dd = lat.convert_to_dd()
+        return lon_dd, lat_dd
+
+    def import_obstacle(self):
+        """ Import obstacle from CSV file into shapefile. """
+        msg = ''
+        count = 0
+        input_file = self.dlg.mQgsFileWidgetInputFile.filePath()
+        output_file = self.dlg.mQgsFileWidgetOutputFile.filePath()
+
+        if not input_file:
+            msg += "Input file required!\n"
+
+        if not output_file:
+            msg += "Output file is required!"
+
+        if input_file and output_file:
+            obstacle_fields = self.get_obstacle_fields()
+
+            writer = QgsVectorFileWriter(output_file, 'UTF-8', obstacle_fields, QgsWkbTypes.Point,
+                                         QgsCoordinateReferenceSystem('EPSG:4326'), 'ESRI Shapefile')
+            del writer
+
+            layer = QgsVectorLayer(output_file, 'obstacle', 'ogr')
+            provider = layer.dataProvider()
+
+            feature = QgsFeature(layer.fields())
+
+            with open(input_file, 'r') as f:
+                reader = csv.DictReader(f, delimiter=';')
+                header = reader.fieldnames
+                field_names = obstacle_fields.names()
+
+                if sorted(field_names) == sorted(header):
+                    # Fields in input CSV file are the same as in output layer
+                    for row in reader:
+                        for key in row:
+                            feature[key] = row[key]
+
+                        lon_dd, lat_dd = self.source_coordinate_to_dd(row['lon_src'].strip(), row['lat_src'].strip())
+                        if lon_dd and lat_dd:
+                            feature.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(lon_dd, lat_dd)))
+                            provider.addFeatures([feature])
+                            count += 1
+            layer.commitChanges()
+            QMessageBox.information(QWidget(), "Message", "Import completed.\n"
+                                                          "Imported: {}".format(count))
+        else:
+            QMessageBox.critical(QWidget(), "Message", msg)
 
     def run(self):
         """Run method that performs all the real work"""
@@ -188,6 +266,9 @@ class ObstacleFromCSV:
         if self.first_start == True:
             self.first_start = False
             self.dlg = ObstacleFromCSVDialog()
+            self.dlg.mQgsFileWidgetInputFile.setFilter('*.csv')
+            self.dlg.mQgsFileWidgetOutputFile.setFilter('*.shp')
+            self.dlg.pushButtonImport.clicked.connect(self.import_obstacle)
 
         # show the dialog
         self.dlg.show()
