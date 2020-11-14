@@ -47,6 +47,7 @@ class ObstacleFromCSV:
             application at run time.
         :type iface: QgsInterface
         """
+        self.count = None
         # Save reference to the QGIS interface
         self.iface = iface
         # initialize plugin directory
@@ -203,15 +204,50 @@ class ObstacleFromCSV:
             fields.append(attribute)
         return fields
 
-    def import_obstacle(self):
+    @staticmethod
+    def get_missing_csv_fields(layer_fields, csv_fields):
+        """ Check if source data CSV fields are the same as in output layer.
+        Return list of 'missing' fields.
+        :param layer_fields: list, field names in output layer
+        :param csv_fields: list, field names from input CSV file
+        :return missing_fields: list, fields that are in output layer but not in CSV file
+        """
+        if sorted(layer_fields) == sorted(csv_fields):
+            return
+        else:
+            missing_fields = []
+            for layer_field in layer_fields:
+                if layer_field not in csv_fields:
+                    missing_fields.append(layer_field)
+            return missing_fields
+
+    def add_obstacle(self, feature, attributes, src_data, provider):
+        """ Add obstacle feature to layer.
+        """
+        check_msg, parsed_data = Obstacle.parse_obstacle_data(src_data)
+        if check_msg:
+            QMessageBox.critical(QWidget(), "Message", "Input data error:\n"
+                                                       "{}".format(check_msg))
+        else:
+            # Assign attribute data
+            for attribute in attributes:
+                feature[attribute] = parsed_data[attribute]
+
+            feature.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(parsed_data["lon_dd"],
+                                                                   parsed_data["lat_dd"])))
+
+            provider.addFeatures([feature])
+            self.count += 1
+
+    def import_obstacle_from_csv_file(self):
         """ Import obstacle from CSV file into shapefile. """
         msg = ''
-        count = 0
+        self.count = 0
         input_file = self.dlg.mQgsFileWidgetInputFile.filePath()
         output_file = self.dlg.mQgsFileWidgetOutputFile.filePath()
 
         if not input_file:
-            msg += "Input file required!\n"
+            msg += "Input file is required!\n"
 
         if not output_file:
             msg += "Output file is required!"
@@ -233,31 +269,74 @@ class ObstacleFromCSV:
                 header = reader.fieldnames
                 field_names = obstacle_fields.names()
 
-                if sorted(field_names) == sorted(header):
+                missing_fields = self.get_missing_csv_fields(field_names, header)
+
+                if not missing_fields:
                     # Fields in input CSV file are the same as in output layer
                     for row in reader:
-                        # Check input data
-                        check_msg, parsed_data = Obstacle.parse_obstacle_data(row)
-                        if check_msg:
-                            QMessageBox.critical(QWidget(), "Message", "Input data error:\n"
-                                                                       "{}".format(check_msg))
-                        else:
-                            # Assign attribute data
-                            for key in row:
-                                feature[key] = row[key]
-
-                            # Set geometry
-                            lon_dd = parsed_data["lon_dd"]
-                            lat_dd = parsed_data["lat_dd"]
-                            feature.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(lon_dd, lat_dd)))
-
-                            provider.addFeatures([feature])
-                            count += 1
+                        self.add_obstacle(feature, field_names, row, provider)
                     layer.commitChanges()
                     QMessageBox.information(QWidget(), "Message", "Import completed.\n"
-                                                                  "Imported: {}".format(count))
+                                                                  "Imported: {}".format(self.count))
+                elif missing_fields == ["ctry_name", "vert_uom"]:
+                    self.dlg.lineEditCountryName.setEnabled(True)
+                    self.dlg.comboBoxVerticalUOM.setEnabled(True)
+                    all_ctry_name = self.dlg.lineEditCountryName.text().strip()
+                    all_vert_uom = self.dlg.comboBoxVerticalUOM.currentText()
+                    if all_ctry_name:
+                        for row in reader:
+                            # Check input data
+                            row["ctry_name"] = all_ctry_name
+                            row["vert_uom"] = all_vert_uom
+                            self.add_obstacle(feature, field_names, row, provider)
+                        layer.commitChanges()
+                        QMessageBox.information(QWidget(), "Message", "Import completed.\n"
+                                                                      "Imported: {}".format(self.count))
+
+                    else:
+                        QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
+                                                                      "{}.\n"
+                                                                      "Assign country name and vertical UOM"
+                                                                      " for all imported data".format(missing_fields))
+                elif missing_fields == ["ctry_name"]:
+                    self.dlg.lineEditCountryName.setEnabled(True)
+                    all_ctry_name = self.dlg.lineEditCountryName.text().strip()
+                    if all_ctry_name:
+                        for row in reader:
+                            # Check input data
+                            row["ctry_name"] = all_ctry_name
+                            self.add_obstacle(feature, field_names, row, provider)
+                        layer.commitChanges()
+                        QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
+                                                                      "{}.\n"
+                                                                      "Assign country name and vertical UOM"
+                                                                      " for all imported data".format(missing_fields))
+                    else:
+                        QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
+                                                                      "{}.\n"
+                                                                      "Assign country name "
+                                                                      "for all imported data".format(missing_fields))
+                elif missing_fields == ["vert_uom"]:
+                    self.dlg.comboBoxVerticalUOM.setEnabled(True)
+                    all_vert_uom = self.dlg.comboBoxVerticalUOM.currentText()
+                    if all_vert_uom in ['ft', 'm']:
+                        for row in reader:
+                            row["vert_uom"] = all_vert_uom
+                            self.add_obstacle(feature, field_names, row, provider)
+                        layer.commitChanges()
+                        QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
+                                                                      "{}.\n"
+                                                                      "Assign country name and vertical UOM"
+                                                                      " for all imported data".format(missing_fields))
+                    else:
+                        QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
+                                                                      "{}.\n"
+                                                                      "Assign vertical UOM "
+                                                                      "for all imported data".format(missing_fields))
                 else:
-                    QMessageBox.critical(QWidget(), "Message", "CSV fields in input file not supported!")
+                    QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
+                                                                  "{}.\n".format(missing_fields))
+
         else:
             QMessageBox.critical(QWidget(), "Message", msg)
 
@@ -271,7 +350,7 @@ class ObstacleFromCSV:
             self.dlg = ObstacleFromCSVDialog()
             self.dlg.mQgsFileWidgetInputFile.setFilter('*.csv')
             self.dlg.mQgsFileWidgetOutputFile.setFilter('*.shp')
-            self.dlg.pushButtonImport.clicked.connect(self.import_obstacle)
+            self.dlg.pushButtonImport.clicked.connect(self.import_obstacle_from_csv_file)
 
         # show the dialog
         self.dlg.show()

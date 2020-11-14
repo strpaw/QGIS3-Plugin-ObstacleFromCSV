@@ -74,6 +74,7 @@ class Obstacle:
             lon = Coordinate(src_angle=lon_src, angle_type=AT_LONGITUDE)
             lon_dd = lon.convert_to_dd()
             if lon_dd is not None:
+                parsed_data["lon_src"] = lon_src
                 parsed_data["lon_dd"] = lon_dd
             else:
                 err_msg_list.append('Longitude error: {}'.format(lon_src))
@@ -85,6 +86,7 @@ class Obstacle:
             lat = Coordinate(src_angle=lat_src, angle_type=AT_LATITUDE)
             lat_dd = lat.convert_to_dd()
             if lat_dd is not None:
+                parsed_data["lat_src"] = lat_src
                 parsed_data["lat_dd"] = lat_dd
             else:
                 err_msg_list.append('Latitude error: {}'.format(lat_src))
