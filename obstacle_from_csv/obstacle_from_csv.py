@@ -33,6 +33,7 @@ from .obstacle_from_csv_dialog import ObstacleFromCSVDialog
 import os.path
 import csv
 from .aviation_gis_tools.coordinate import *
+from .obstacle_tools import *
 
 
 class ObstacleFromCSV:
@@ -202,15 +203,6 @@ class ObstacleFromCSV:
             fields.append(attribute)
         return fields
 
-    @staticmethod
-    def source_coordinate_to_dd(lon_src, lat_src):
-        """ Convert source obstacle coordinates to  decimal degrees. """
-        lon = Coordinate(src_angle=lon_src, angle_type=AT_LONGITUDE)
-        lat = Coordinate(src_angle=lat_src, angle_type=AT_LATITUDE)
-        lon_dd = lon.convert_to_dd()
-        lat_dd = lat.convert_to_dd()
-        return lon_dd, lat_dd
-
     def import_obstacle(self):
         """ Import obstacle from CSV file into shapefile. """
         msg = ''
@@ -244,17 +236,28 @@ class ObstacleFromCSV:
                 if sorted(field_names) == sorted(header):
                     # Fields in input CSV file are the same as in output layer
                     for row in reader:
-                        for key in row:
-                            feature[key] = row[key]
+                        # Check input data
+                        check_msg, parsed_data = Obstacle.parse_obstacle_data(row)
+                        if check_msg:
+                            QMessageBox.critical(QWidget(), "Message", "Input data error:\n"
+                                                                       "{}".format(check_msg))
+                        else:
+                            # Assign attribute data
+                            for key in row:
+                                feature[key] = row[key]
 
-                        lon_dd, lat_dd = self.source_coordinate_to_dd(row['lon_src'].strip(), row['lat_src'].strip())
-                        if lon_dd and lat_dd:
+                            # Set geometry
+                            lon_dd = parsed_data["lon_dd"]
+                            lat_dd = parsed_data["lat_dd"]
                             feature.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(lon_dd, lat_dd)))
+
                             provider.addFeatures([feature])
                             count += 1
-            layer.commitChanges()
-            QMessageBox.information(QWidget(), "Message", "Import completed.\n"
-                                                          "Imported: {}".format(count))
+                    layer.commitChanges()
+                    QMessageBox.information(QWidget(), "Message", "Import completed.\n"
+                                                                  "Imported: {}".format(count))
+                else:
+                    QMessageBox.critical(QWidget(), "Message", "CSV fields in input file not supported!")
         else:
             QMessageBox.critical(QWidget(), "Message", msg)
 
