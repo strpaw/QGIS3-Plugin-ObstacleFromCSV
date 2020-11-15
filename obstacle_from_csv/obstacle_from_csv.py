@@ -259,7 +259,9 @@ class ObstacleFromCSV:
                                          QgsCoordinateReferenceSystem('EPSG:4326'), 'ESRI Shapefile')
             del writer
 
-            layer = QgsVectorLayer(output_file, 'obstacle', 'ogr')
+            layer_name = os.path.splitext(os.path.basename(output_file))[0]
+
+            layer = QgsVectorLayer(output_file, layer_name, 'ogr')
             provider = layer.dataProvider()
 
             feature = QgsFeature(layer.fields())
