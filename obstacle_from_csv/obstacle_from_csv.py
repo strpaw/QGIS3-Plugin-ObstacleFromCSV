@@ -276,6 +276,8 @@ class ObstacleFromCSV:
                     for row in reader:
                         self.add_obstacle(feature, field_names, row, provider)
                     layer.commitChanges()
+                    if self.dlg.checkBoxAddLayerToMap.isChecked():
+                        QgsProject.instance().addMapLayer(layer)
                     QMessageBox.information(QWidget(), "Message", "Import completed.\n"
                                                                   "Imported: {}".format(self.count))
                 elif missing_fields == ["ctry_name", "vert_uom"]:
@@ -290,6 +292,8 @@ class ObstacleFromCSV:
                             row["vert_uom"] = all_vert_uom
                             self.add_obstacle(feature, field_names, row, provider)
                         layer.commitChanges()
+                        if self.dlg.checkBoxAddLayerToMap.isChecked():
+                            QgsProject.instance().addMapLayer(layer)
                         QMessageBox.information(QWidget(), "Message", "Import completed.\n"
                                                                       "Imported: {}".format(self.count))
 
@@ -307,6 +311,8 @@ class ObstacleFromCSV:
                             row["ctry_name"] = all_ctry_name
                             self.add_obstacle(feature, field_names, row, provider)
                         layer.commitChanges()
+                        if self.dlg.checkBoxAddLayerToMap.isChecked():
+                            QgsProject.instance().addMapLayer(layer)
                         QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
                                                                       "{}.\n"
                                                                       "Assign country name and vertical UOM"
@@ -324,6 +330,8 @@ class ObstacleFromCSV:
                             row["vert_uom"] = all_vert_uom
                             self.add_obstacle(feature, field_names, row, provider)
                         layer.commitChanges()
+                        if self.dlg.checkBoxAddLayerToMap.isChecked():
+                            QgsProject.instance().addMapLayer(layer)
                         QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
                                                                       "{}.\n"
                                                                       "Assign country name and vertical UOM"
