@@ -295,7 +295,7 @@ class ObstacleFromCSV:
                     self.dlg.comboBoxVerticalUOM.setEnabled(True)
                     all_ctry_name = self.dlg.lineEditCountryName.text().strip()
                     all_vert_uom = self.dlg.comboBoxVerticalUOM.currentText()
-                    if all_ctry_name:
+                    if all_ctry_name and all_vert_uom in ['ft', 'm']:
                         for row in reader:
                             # Check input data
                             row["ctry_name"] = all_ctry_name
