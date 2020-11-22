@@ -274,6 +274,12 @@ class ObstacleFromCSV:
                 missing_fields = self.get_missing_csv_fields(field_names, header)
 
                 if not missing_fields:
+                    self.dlg.labelCtryName.setEnabled(False)
+                    self.dlg.lineEditCountryName.clear()
+                    self.dlg.lineEditCountryName.setEnabled(False)
+                    self.dlg.labelVertUOM.setEnabled(False)
+                    self.dlg.comboBoxVerticalUOM.setCurrentIndex(0)
+                    self.dlg.comboBoxVerticalUOM.setEnabled(False)
                     # Fields in input CSV file are the same as in output layer
                     for row in reader:
                         self.add_obstacle(feature, field_names, row, provider)
@@ -283,7 +289,9 @@ class ObstacleFromCSV:
                     QMessageBox.information(QWidget(), "Message", "Import completed.\n"
                                                                   "Imported: {}".format(self.count))
                 elif missing_fields == ["ctry_name", "vert_uom"]:
+                    self.dlg.labelCtryName.setEnabled(True)
                     self.dlg.lineEditCountryName.setEnabled(True)
+                    self.dlg.labelVertUOM.setEnabled(True)
                     self.dlg.comboBoxVerticalUOM.setEnabled(True)
                     all_ctry_name = self.dlg.lineEditCountryName.text().strip()
                     all_vert_uom = self.dlg.comboBoxVerticalUOM.currentText()
@@ -303,9 +311,13 @@ class ObstacleFromCSV:
                         QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
                                                                       "{}.\n"
                                                                       "Assign country name and vertical UOM"
-                                                                      " for all imported data".format(missing_fields))
+                                                                      " for all imported data.".format(missing_fields))
                 elif missing_fields == ["ctry_name"]:
+                    self.dlg.labelCtryName.setEnabled(True)
                     self.dlg.lineEditCountryName.setEnabled(True)
+                    self.dlg.labelVertUOM.setEnabled(False)
+                    self.dlg.comboBoxVerticalUOM.setCurrentIndex(0)
+                    self.dlg.comboBoxVerticalUOM.setEnabled(False)
                     all_ctry_name = self.dlg.lineEditCountryName.text().strip()
                     if all_ctry_name:
                         for row in reader:
@@ -315,17 +327,18 @@ class ObstacleFromCSV:
                         layer.commitChanges()
                         if self.dlg.checkBoxAddLayerToMap.isChecked():
                             QgsProject.instance().addMapLayer(layer)
-                        QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
-                                                                      "{}.\n"
-                                                                      "Assign country name and vertical UOM"
-                                                                      " for all imported data".format(missing_fields))
+                        QMessageBox.information(QWidget(), "Message", "Import completed.\n"
+                                                                      "Imported: {}".format(self.count))
                     else:
                         QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
                                                                       "{}.\n"
                                                                       "Assign country name "
-                                                                      "for all imported data".format(missing_fields))
+                                                                      "for all imported data.".format(missing_fields))
                 elif missing_fields == ["vert_uom"]:
+                    self.dlg.labelVertUOM.setEnabled(True)
                     self.dlg.comboBoxVerticalUOM.setEnabled(True)
+                    self.dlg.lineEditCountryName.clear()
+                    self.dlg.lineEditCountryName.setEnabled(False)
                     all_vert_uom = self.dlg.comboBoxVerticalUOM.currentText()
                     if all_vert_uom in ['ft', 'm']:
                         for row in reader:
@@ -334,16 +347,20 @@ class ObstacleFromCSV:
                         layer.commitChanges()
                         if self.dlg.checkBoxAddLayerToMap.isChecked():
                             QgsProject.instance().addMapLayer(layer)
-                        QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
-                                                                      "{}.\n"
-                                                                      "Assign country name and vertical UOM"
-                                                                      " for all imported data".format(missing_fields))
+                        QMessageBox.information(QWidget(), "Message", "Import completed.\n"
+                                                                      "Imported: {}".format(self.count))
                     else:
                         QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
                                                                       "{}.\n"
                                                                       "Assign vertical UOM "
-                                                                      "for all imported data".format(missing_fields))
+                                                                      "for all imported data.".format(missing_fields))
                 else:
+                    self.dlg.labelCtryName.setEnabled(False)
+                    self.dlg.lineEditCountryName.clear()
+                    self.dlg.lineEditCountryName.setEnabled(False)
+                    self.dlg.labelVertUOM.setEnabled(False)
+                    self.dlg.comboBoxVerticalUOM.setCurrentIndex(0)
+                    self.dlg.comboBoxVerticalUOM.setEnabled(False)
                     QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
                                                                   "{}.\n".format(missing_fields))
 
@@ -364,6 +381,15 @@ class ObstacleFromCSV:
 
         # show the dialog
         self.dlg.show()
+        self.dlg.mQgsFileWidgetInputFile.lineEdit().clear()
+        self.dlg.mQgsFileWidgetOutputFile.lineEdit().clear()
+        self.dlg.checkBoxAddLayerToMap.setChecked(False)
+        self.dlg.labelCtryName.setEnabled(False)
+        self.dlg.lineEditCountryName.clear()
+        self.dlg.lineEditCountryName.setEnabled(False)
+        self.dlg.labelVertUOM.setEnabled(False)
+        self.dlg.comboBoxVerticalUOM.setCurrentIndex(0)
+        self.dlg.comboBoxVerticalUOM.setEnabled(False)
         # Run the dialog event loop
         result = self.dlg.exec_()
         # See if OK was pressed
