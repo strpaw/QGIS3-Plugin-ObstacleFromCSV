@@ -267,7 +267,8 @@ class ObstacleFromCSV:
             feature = QgsFeature(layer.fields())
 
             with open(input_file, 'r') as f:
-                reader = csv.DictReader(f, delimiter=';')
+                delimiter = self.dlg.comboBoxCSVDelimiter.currentText()
+                reader = csv.DictReader(f, delimiter=delimiter)
                 header = reader.fieldnames
                 field_names = obstacle_fields.names()
 
@@ -390,6 +391,7 @@ class ObstacleFromCSV:
         self.dlg.labelVertUOM.setEnabled(False)
         self.dlg.comboBoxVerticalUOM.setCurrentIndex(0)
         self.dlg.comboBoxVerticalUOM.setEnabled(False)
+        self.dlg.comboBoxCSVDelimiter.setCurrentIndex(0)
         # Run the dialog event loop
         result = self.dlg.exec_()
         # See if OK was pressed
