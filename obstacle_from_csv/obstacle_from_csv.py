@@ -34,7 +34,7 @@ import os.path
 import csv
 from .aviation_gis_tools.coordinate import *
 from .obstacle_tools import *
-
+from datetime import datetime
 
 class ObstacleFromCSV:
     """QGIS Plugin Implementation."""
@@ -48,6 +48,7 @@ class ObstacleFromCSV:
         :type iface: QgsInterface
         """
         self.count = None
+        self.import_log = None  # Full path to import log file - records from CSV file with errors etc.
         # Save reference to the QGIS interface
         self.iface = iface
         # initialize plugin directory
@@ -184,6 +185,15 @@ class ObstacleFromCSV:
                 action)
             self.iface.removeToolBarIcon(action)
 
+    def create_import_log_file_name(self, file_name='TEST.txt'):
+        """
+
+        """
+        directory = os.path.dirname(os.path.realpath(__file__))
+        self.import_log = os.path.join(directory, "{}_import.log".format(file_name))
+        with open(self.import_log, 'w') as f:
+            f.write("{} | Import started.\n".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")))
+
     @staticmethod
     def get_obstacle_fields():
         """ Create fields for output layer. """
@@ -226,8 +236,9 @@ class ObstacleFromCSV:
         """
         check_msg, parsed_data = Obstacle.parse_obstacle_data(src_data)
         if check_msg:
-            QMessageBox.critical(QWidget(), "Message", "Input data error:\n"
-                                                       "{}".format(check_msg))
+            with open(self.import_log, 'a') as log:
+                log.write("{} | Line skipped. "
+                          "Input data error: {}\n".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"), check_msg))
         else:
             # Assign attribute data
             for attribute in attributes:
@@ -258,7 +269,7 @@ class ObstacleFromCSV:
             writer = QgsVectorFileWriter(output_file, 'UTF-8', obstacle_fields, QgsWkbTypes.Point,
                                          QgsCoordinateReferenceSystem('EPSG:4326'), 'ESRI Shapefile')
             del writer
-
+            input_file_name = os.path.splitext(os.path.basename(input_file))[0]
             layer_name = os.path.splitext(os.path.basename(output_file))[0]
 
             layer = QgsVectorLayer(output_file, layer_name, 'ogr')
@@ -267,6 +278,7 @@ class ObstacleFromCSV:
             feature = QgsFeature(layer.fields())
 
             with open(input_file, 'r') as f:
+                self.create_import_log_file_name(input_file_name)
                 delimiter = self.dlg.comboBoxCSVDelimiter.currentText()
                 reader = csv.DictReader(f, delimiter=delimiter)
                 header = reader.fieldnames
