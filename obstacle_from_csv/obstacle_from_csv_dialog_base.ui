@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1008</width>
-    <height>332</height>
+    <width>1141</width>
+    <height>540</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,8 +19,8 @@
   <widget class="QDialogButtonBox" name="button_box">
    <property name="geometry">
     <rect>
-     <x>870</x>
-     <y>280</y>
+     <x>980</x>
+     <y>480</y>
      <width>91</width>
      <height>32</height>
     </rect>
@@ -50,7 +50,7 @@
     <rect>
      <x>100</x>
      <y>80</y>
-     <width>891</width>
+     <width>1011</width>
      <height>27</height>
     </rect>
    </property>
@@ -70,8 +70,8 @@
   <widget class="QPushButton" name="pushButtonImport">
    <property name="geometry">
     <rect>
-     <x>770</x>
-     <y>282</y>
+     <x>880</x>
+     <y>482</y>
      <width>93</width>
      <height>28</height>
     </rect>
@@ -88,7 +88,7 @@
     <rect>
      <x>100</x>
      <y>20</y>
-     <width>891</width>
+     <width>1011</width>
      <height>27</height>
     </rect>
    </property>
@@ -115,52 +115,214 @@
    </property>
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>150</y>
-     <width>941</width>
-     <height>111</height>
+     <x>10</x>
+     <y>170</y>
+     <width>1111</width>
+     <height>201</height>
     </rect>
    </property>
    <property name="title">
     <string>Assign attribute values</string>
    </property>
-   <widget class="QLineEdit" name="lineEditCountryName">
-    <property name="enabled">
-     <bool>false</bool>
-    </property>
+   <widget class="QComboBox" name="comboBoxObstacleIdent">
     <property name="geometry">
      <rect>
-      <x>140</x>
-      <y>30</y>
-      <width>211</width>
+      <x>10</x>
+      <y>150</y>
+      <width>170</width>
       <height>22</height>
      </rect>
     </property>
    </widget>
-   <widget class="QLabel" name="labelCtryName">
-    <property name="enabled">
-     <bool>false</bool>
-    </property>
+   <widget class="QLabel" name="label_4">
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>30</y>
-      <width>81</width>
+      <y>130</y>
+      <width>101</width>
       <height>16</height>
      </rect>
     </property>
     <property name="text">
-     <string>Country name:</string>
+     <string>Obstacle Ident</string>
     </property>
    </widget>
-   <widget class="QLabel" name="labelVertUOM">
-    <property name="enabled">
-     <bool>false</bool>
+   <widget class="QComboBox" name="comboBoxObstacleName">
+    <property name="geometry">
+     <rect>
+      <x>190</x>
+      <y>150</y>
+      <width>170</width>
+      <height>22</height>
+     </rect>
     </property>
+   </widget>
+   <widget class="QLabel" name="label_5">
+    <property name="geometry">
+     <rect>
+      <x>190</x>
+      <y>130</y>
+      <width>101</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Obstacle Name</string>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="comboBoxSourceLongitude">
+    <property name="geometry">
+     <rect>
+      <x>370</x>
+      <y>150</y>
+      <width>170</width>
+      <height>22</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_6">
+    <property name="geometry">
+     <rect>
+      <x>370</x>
+      <y>130</y>
+      <width>71</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Longitude</string>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="comboBoxSourceLatitude">
+    <property name="geometry">
+     <rect>
+      <x>550</x>
+      <y>150</y>
+      <width>170</width>
+      <height>22</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QLabel" name="Latitude">
+    <property name="geometry">
+     <rect>
+      <x>550</x>
+      <y>130</y>
+      <width>71</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Latitude</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="Latitude_2">
+    <property name="geometry">
+     <rect>
+      <x>730</x>
+      <y>130</y>
+      <width>71</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Agl</string>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="comboBoxAgl">
+    <property name="geometry">
+     <rect>
+      <x>730</x>
+      <y>150</y>
+      <width>170</width>
+      <height>22</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="comboBoxAmsl">
+    <property name="geometry">
+     <rect>
+      <x>910</x>
+      <y>150</y>
+      <width>170</width>
+      <height>22</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QLabel" name="Latitude_3">
+    <property name="geometry">
+     <rect>
+      <x>910</x>
+      <y>130</y>
+      <width>71</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Amsl</string>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="comboBoxCountryName">
     <property name="geometry">
      <rect>
       <x>10</x>
       <y>60</y>
+      <width>240</width>
+      <height>22</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="comboBoxObstacleType">
+    <property name="geometry">
+     <rect>
+      <x>270</x>
+      <y>60</y>
+      <width>200</width>
+      <height>22</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_7">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>40</y>
+      <width>101</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Country name</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_8">
+    <property name="geometry">
+     <rect>
+      <x>270</x>
+      <y>40</y>
+      <width>101</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Obstacle type</string>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="comboBoxVerticalUOM">
+    <property name="geometry">
+     <rect>
+      <x>480</x>
+      <y>60</y>
+      <width>150</width>
+      <height>22</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_9">
+    <property name="geometry">
+     <rect>
+      <x>480</x>
+      <y>40</y>
       <width>91</width>
       <height>16</height>
      </rect>
@@ -169,14 +331,40 @@
      <string>Vertical UOM</string>
     </property>
    </widget>
-   <widget class="QComboBox" name="comboBoxVerticalUOM">
+   <widget class="QLineEdit" name="lineEditCountryNameByUser">
     <property name="enabled">
      <bool>false</bool>
     </property>
     <property name="geometry">
      <rect>
-      <x>140</x>
-      <y>60</y>
+      <x>10</x>
+      <y>90</y>
+      <width>240</width>
+      <height>22</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="lineEditObstacleTypeByUser">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
+    <property name="geometry">
+     <rect>
+      <x>270</x>
+      <y>90</y>
+      <width>200</width>
+      <height>22</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="comboBoxCommonVerticalUOMByUser">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
+    <property name="geometry">
+     <rect>
+      <x>480</x>
+      <y>90</y>
       <width>81</width>
       <height>22</height>
      </rect>
@@ -252,6 +440,32 @@
      <string>,</string>
     </property>
    </item>
+  </widget>
+  <widget class="QLabel" name="label_10">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>390</y>
+     <width>121</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Import log saved in:</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="pushButtonImportLog">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>410</y>
+     <width>1101</width>
+     <height>28</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>PushButton</string>
+   </property>
   </widget>
  </widget>
  <customwidgets>

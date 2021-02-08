@@ -26,7 +26,7 @@ class Obstacle:
 
         ctry_name = data["ctry_name"].strip()
         if ctry_name:
-            parsed_data["ctry_name"] = data["ctry_name"].strip()
+            parsed_data["ctry_name"] = ctry_name
         else:
             err_msg_list.append('Country name is required.')
 
