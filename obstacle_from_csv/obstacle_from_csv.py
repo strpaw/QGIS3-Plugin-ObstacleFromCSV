@@ -36,6 +36,7 @@ from .aviation_gis_tools.coordinate import *
 from .obstacle_tools import *
 from datetime import datetime
 
+
 class ObstacleFromCSV:
     """QGIS Plugin Implementation."""
 
@@ -47,8 +48,25 @@ class ObstacleFromCSV:
             application at run time.
         :type iface: QgsInterface
         """
-        self.count_imported = None
-        self.log_path = None
+        self.input_file_path = None
+        self.output_file_path = None
+        self.import_log_path = None
+        self.csv_delimiter = None
+        self.err_msg = ''
+        self.field_assignment_controls = None
+        self.obstacle_data = {
+            'ctry_name': '',
+            'obst_ident': '',
+            'obst_name': '',
+            'obst_type': '',
+            'lon_src': '',
+            'lat_src': '',
+            'agl': '',
+            'amsl': '',
+            'vert_uom': ''
+        }
+        self.count_imported = 0
+
         # Save reference to the QGIS interface
         self.iface = iface
         # initialize plugin directory
@@ -176,7 +194,6 @@ class ObstacleFromCSV:
         # will be set False in run()
         self.first_start = True
 
-
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
         for action in self.actions:
@@ -185,216 +202,321 @@ class ObstacleFromCSV:
                 action)
             self.iface.removeToolBarIcon(action)
 
-    def enable_country_name_input_field(self):
-        self.dlg.labelCtryName.setEnabled(True)
-        self.dlg.lineEditCountryName.setEnabled(True)
+    def log(self, msg):
+        with open('C:\GIS_test\obstacle_csv.txt', 'a') as f:
+            f.write(str(msg) + '\n')
 
-    def disable_country_name_input_field(self):
-        self.dlg.labelCtryName.setEnabled(False)
-        self.dlg.lineEditCountryName.clear()
-        self.dlg.lineEditCountryName.setEnabled(False)
-
-    def enable_vertical_uom_field(self):
-        self.dlg.labelVertUOM.setEnabled(True)
-        self.dlg.comboBoxVerticalUOM.setEnabled(True)
-
-    def disable_vertical_uom_field(self):
-        self.dlg.labelVertUOM.setEnabled(False)
-        self.dlg.comboBoxVerticalUOM.setCurrentIndex(0)
-        self.dlg.comboBoxVerticalUOM.setEnabled(False)
-
-    def set_log_path(self, file_name):
-        """ Return full path to import log file - contains errors and not imported records from CSV file, example if
-        there is incorrect or not supported coordinate format.
-        :param file_name: str, import log file name, based on input CSV data file
-        """
-        directory = os.path.dirname(os.path.realpath(__file__))
-        self.log_path = os.path.join(directory, "{}_import.log".format(file_name))
-        # with open(self.log_path, 'w') as f:
-        #     f.write("{} | Import started.\n".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")))
+    def set_csv_delimiter(self):
+        self.csv_delimiter = self.dlg.comboBoxCSVDelimiter.currentText()
 
     @staticmethod
-    def get_obstacle_fields():
-        """ Create fields for output layer.
-        :return fields: QgsFields
+    def get_output_fields():
+        """ Create fields (attributes) for output layer.
+        :return output_fields: QgsFields
         """
-        attributes = [
-            QgsField("ctry_name", QVariant.String, len=150),
-            QgsField("obst_ident", QVariant.String, len=50),
-            QgsField("obst_name", QVariant.String, len=100),
-            QgsField("lon_src", QVariant.String, len=30),
-            QgsField("lat_src", QVariant.String, len=30),
-            QgsField("agl", QVariant.Double),
-            QgsField("amsl", QVariant.Double),
-            QgsField("vert_uom", QVariant.String, len=2),
-            QgsField("obst_type", QVariant.String, len=30)
-        ]
+        output_fields = QgsFields()
+        output_fields.append(QgsField("ctry_name", QVariant.String, len=150))
+        output_fields.append(QgsField("obst_ident", QVariant.String, len=50))
+        output_fields.append(QgsField("obst_name", QVariant.String, len=100))
+        output_fields.append(QgsField("obst_type", QVariant.String, len=30))
+        output_fields.append(QgsField("lon_src", QVariant.String, len=30))
+        output_fields.append(QgsField("lat_src", QVariant.String, len=30))
+        output_fields.append(QgsField("agl", QVariant.Double))
+        output_fields.append(QgsField("amsl", QVariant.Double))
+        output_fields.append(QgsField("vert_uom", QVariant.String, len=2))
 
-        fields = QgsFields()
-        for attribute in attributes:
-            fields.append(attribute)
-        return fields
+        return output_fields
 
-    @staticmethod
-    def check_csv_fields(layer_fields, csv_fields):
-        """ Check if source data CSV fields are the same as in output layer.
-        :param layer_fields: list, field names in output layer
-        :param csv_fields: list, field names from input CSV file
-        :return missing_fields: list, fields that are in output layer but not in CSV file
+    def get_csv_fields(self):
+        """ Get csv fields from input file.
+        :return csv_fields: list
         """
-        if sorted(layer_fields) == sorted(csv_fields):
-            return
+        with open(self.input_file_path, 'r') as f:
+            reader = csv.DictReader(f, delimiter=self.csv_delimiter)
+            csv_fields = reader.fieldnames
+            return csv_fields
+
+    def fill_field_assignment_controls(self, csv_fields):
+        """ Fill in assignment controls with csv fields.
+        :param csv_fields: list
+        """
+        for assignment_control_object in self.field_assignment_controls.values():
+            assignment_control_object.addItems(csv_fields)
+
+        # For some of the fields user can enter value that will be used for all records in given csv data files
+        self.dlg.comboBoxCountryName.addItem("[Use value:]")
+        self.dlg.comboBoxObstacleType.addItem("[Use value:]")
+        self.dlg.comboBoxVerticalUOM.addItem("[Use value:]")
+        # Obstacle name is optional - in case there is no in csv data file user can skip this field
+        self.dlg.comboBoxObstacleName.addItem("[Skip]")
+
+    def assign_default_csv_field_to_controls(self, output_fields):
+        """ Set field assignment controls with default value: if there is csv field in input csv that name is
+        the same as in attribute (field) in output file.
+        :param output_fields: list, name of field in output file
+        """
+        for output_field in output_fields:
+            assignment_control = self.field_assignment_controls[output_field]
+            assignment_control.setCurrentText(output_field)
+
+    def clear_assignment_controls(self):
+        """ Remove items (csv input file fields) from assignment controls. """
+        for assignment_control_object in self.field_assignment_controls.values():
+            assignment_control_object.clear()
+
+    def change_country_name_user_entry_state(self):
+        """ Disable/enable country name input field if  item [Use value:] is selected or not in Country name assignment
+        control. """
+        items_count = self.dlg.comboBoxCountryName.count()
+        if items_count > 0:
+            if self.dlg.comboBoxCountryName.currentIndex() == items_count - 1:
+                self.dlg.lineEditCountryNameByUser.setEnabled(True)
+            else:
+                self.dlg.lineEditCountryNameByUser.clear()
+                self.dlg.lineEditCountryNameByUser.setEnabled(False)
+
+    def change_obstacle_type_user_entry_state(self):
+        """ Disable/enable obstacle type input field if  item [Use value:] is selected or not in
+        Obstacle type assignment control. """
+        items_count = self.dlg.comboBoxObstacleType.count()
+        if items_count > 0:
+            if self.dlg.comboBoxObstacleType.currentIndex() == items_count - 1:
+                self.dlg.lineEditObstacleTypeByUser.setEnabled(True)
+            else:
+                self.dlg.lineEditObstacleTypeByUser.clear()
+                self.dlg.lineEditObstacleTypeByUser.setEnabled(False)
+
+    def change_vertical_uom_user_entry_state(self):
+        """ Disable/enable Vertical UOM combobox with UOMs (ft, m)  if  item [Use value:] is selected or not in
+        Vertical UOM obstacle assignment control. """
+        items_count = self.dlg.comboBoxVerticalUOM.count()
+        if items_count > 0:
+            if self.dlg.comboBoxVerticalUOM.currentIndex() == items_count - 1:
+                self.dlg.comboBoxCommonVerticalUOMByUser.setEnabled(True)
+            else:
+                self.dlg.comboBoxCommonVerticalUOMByUser.setCurrentIndex(0)
+                self.dlg.comboBoxCommonVerticalUOMByUser.setEnabled(False)
+
+    def disable_obstacle_attributes_by_user(self):
+        """ Disable controls to enter obstacle attributes (such as country name, obstacle type) by user - not
+        taken from input csv data file. """
+        self.dlg.lineEditCountryNameByUser.clear()
+        self.dlg.lineEditCountryNameByUser.setEnabled(False)
+        self.dlg.lineEditObstacleTypeByUser.clear()
+        self.dlg.lineEditObstacleTypeByUser.setEnabled(False)
+        self.dlg.comboBoxCommonVerticalUOMByUser.setCurrentIndex(0)
+        self.dlg.comboBoxCommonVerticalUOMByUser.setEnabled(False)
+
+    def init_plugin(self):
+        self.dlg.mQgsFileWidgetInputFile.lineEdit().clear()
+        self.dlg.mQgsFileWidgetOutputFile.lineEdit().clear()
+        self.dlg.checkBoxAddLayerToMap.setChecked(False)
+        self.clear_assignment_controls()
+        self.disable_obstacle_attributes_by_user()
+        self.dlg.pushButtonImportLog.setText("")
+        self.dlg.pushButtonImportLog.setEnabled(False)
+
+    def reset_csv_fields_assignment(self):
+        """ Read fields from CSV input file and fill drop-down lists with them if there are 3 or more
+        fields in CSV file. """
+        self.clear_assignment_controls()
+        self.disable_obstacle_attributes_by_user()
+        self.set_csv_delimiter()
+        self.input_file_path = self.dlg.mQgsFileWidgetInputFile.filePath()
+
+        if os.path.isfile(self.input_file_path):
+            csv_fields = self.get_csv_fields()
+            if len(csv_fields) >= 5:
+                self.fill_field_assignment_controls(csv_fields)
+                output_fields = self.get_output_fields()
+                output_field_names = output_fields.names()
+                self.assign_default_csv_field_to_controls(output_field_names)
+            else:
+                QMessageBox.critical(QWidget(), "Message", "At least 6 fields required!")
+
+    def get_user_value_fields(self):
+        """ Get fields that value is entered directly bus user not taken from input csv file - in case such data
+        not exists in input csv file, example country name, vertical UOM is not given
+        but is the same for all records. """
+        user_value_fields = []
+
+        if self.dlg.lineEditCountryNameByUser.isEnabled():
+            user_value_fields.append("ctry_name")
+        if self.dlg.lineEditObstacleTypeByUser.isEnabled():
+            user_value_fields.append("obst_type")
+        if self.dlg.comboBoxCommonVerticalUOMByUser.isEnabled():
+            user_value_fields.append("vert_uom")
+
+        return user_value_fields
+
+    def assign_user_value_fields(self, user_value_fields):
+        """ Assign values entered directly by user to obstacle_data record.
+        :param user_value_fields: list, output fields that values are given by user not taken from csv file
+        """
+        for field in user_value_fields:
+            if field == "ctry_name":
+                self.obstacle_data["ctry_name"] = self.dlg.lineEditCountryNameByUser.text()
+            if field == "obst_type":
+                self.obstacle_data["obst_type"] = self.dlg.lineEditObstacleTypeByUser.text()
+            if field == "vert_uom":
+                self.obstacle_data["vert_uom"] = self.dlg.comboBoxCommonVerticalUOMByUser.currentText()
+
+    def get_fields_to_skip(self):
+        """ Get fields that are not mandatory  in case input csv file not contain data related to those fields. """
+        # For possible future development this is in separate method - possible additional fields such lighting, marking
+        # source information, accuracy - are not always published in csv files.
+        items_count = self.dlg.comboBoxObstacleName.count()
+        if self.dlg.comboBoxObstacleName.currentIndex() == items_count - 1:
+            return ["obst_name"]
+
+    def map_csv_fields(self, exclude_fields):
+        """ Create dictionary that is a map between output field and input csv file field,
+        key - field name in output file
+        value - corresponding field name in input csv file
+        :param exclude_fields: list, output fields that values are given by user not taken from csv file or are not
+        mandatory and not given in csv file (selected as [Skip] in assignment control combobox)
+        :return map_field_output_csv: dict
+        """
+        map_field_output_csv = {}
+        for assignment_control_name, assignment_control_object in self.field_assignment_controls.items():
+            if assignment_control_name not in exclude_fields:
+                map_field_output_csv[assignment_control_name] = assignment_control_object.currentText()
+        return map_field_output_csv
+
+    def get_source_data_from_csv_row(self, row, field_map):
+        """ Read row of input csv file based on the given relation between output fields and csv fields.
+        :param row: dict, row of csv file returned by csv.Reader
+        :param field_map: dict, map between output fields and csv fields
+        """
+        for layer_field, csv_field in field_map.items():
+            self.obstacle_data[layer_field] = row[csv_field]
+
+    def check_input_data(self, user_value_fields):
+        """ Check if:
+             - input file is selected
+             - input file has CSV fields (if selected CSV delimiter is correct)
+             - output file is selected
+        """
+        self.err_msg = ''
+        is_input_ok = True
+        self.output_file_path = self.dlg.mQgsFileWidgetOutputFile.filePath()
+
+        if os.path.isfile(self.input_file_path):
+            csv_fields = self.get_csv_fields()
+            if len(csv_fields) < 5:
+                # At least required data taken from csv file:
+                # obst_ident, lon_scr, lat_src, agl, amsl
+                is_input_ok = False
+                self.err_msg += "Not enough fields in input file! Hint: check field delimiter.\n"
         else:
-            missing_fields = []
-            for layer_field in layer_fields:
-                if layer_field not in csv_fields:
-                    missing_fields.append(layer_field)
-            return missing_fields
+            is_input_ok = False
+            self.err_msg += "Input file is required!\n"
 
-    def add_obstacle(self, feature, attributes, src_data, provider):
+        if not self.output_file_path:
+            is_input_ok = False
+            self.err_msg += "Output file is required!\n"
+
+        if user_value_fields:
+            for field in user_value_fields:
+                if field == "ctry_name":
+                    if self.dlg.lineEditCountryNameByUser.text().strip() == "":
+                        is_input_ok = False
+                        self.err_msg += "Country name is required!\n"
+                if field == "obst_type":
+                    if self.dlg.lineEditObstacleTypeByUser.text().strip() == "":
+                        is_input_ok = False
+                        self.err_msg += "Obstacle type is required!\n"
+                if field == "vert_uom":
+                    if self.dlg.comboBoxCommonVerticalUOMByUser.currentIndex() == 0:
+                        is_input_ok = False
+                        self.err_msg += "Select vertical UOM!\n"
+
+        return is_input_ok
+
+    def add_obstacle(self, feature, attributes, obstacle_data, provider):
         """ Add obstacle feature to layer.
         :param feature: QqsFeature
         :param attributes:
-        :param src_data: dict
+        :param obstacle_data: dict
         :param provider: QgsDataProvider
         """
-        check_msg, parsed_data = Obstacle.parse_obstacle_data(src_data)
-        if check_msg:
-            with open(self.log_path, 'a') as log:
-                log.write("{} | Line skipped. "
-                          "Input data error: {}\n".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"), check_msg))
+        for attribute in attributes:
+            feature[attribute] = obstacle_data[attribute]
+
+            feature.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(obstacle_data["lon_dd"],
+                                                                   obstacle_data["lat_dd"])))
+
+        provider.addFeatures([feature])
+        self.count_imported += 1
+
+    def set_import_log_path(self):
+        """ Return full path to import log file - contains errors and not imported records from CSV file, example if
+        there is incorrect or not supported coordinate format.
+        """
+        directory = os.path.dirname(os.path.realpath(__file__))
+        input_file_name = os.path.splitext(os.path.basename(self.input_file_path))[0]
+        self.import_log_path = os.path.join(directory, "{}_import.log".format(input_file_name))
+
+    def open_import_log(self):
+        os.startfile(self.import_log_path)
+
+    def get_no_mapping_fields(self, user_value_fields):
+        fields_to_skip = self.get_fields_to_skip()
+        if fields_to_skip:
+            return user_value_fields + fields_to_skip
         else:
-            # Assign attribute data
-            for attribute in attributes:
-                feature[attribute] = parsed_data[attribute]
-
-            feature.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(parsed_data["lon_dd"],
-                                                                   parsed_data["lat_dd"])))
-
-            provider.addFeatures([feature])
-            self.count_imported += 1
+            return user_value_fields
 
     def import_obstacle_from_csv_file(self):
-        """ Import obstacle from CSV file into shapefile. """
-        msg = ''
-        self.count_imported = 0
-        input_path = self.dlg.mQgsFileWidgetInputFile.filePath()
-        output_path = self.dlg.mQgsFileWidgetOutputFile.filePath()
+        user_value_fields = self.get_user_value_fields()
 
-        if not os.path.isfile(input_path):
-            msg += "Input file is required!\n"
+        if self.check_input_data(user_value_fields):
+            self.count_imported = 0
+            self.set_import_log_path()
 
-        if not os.path.isfile(output_path)
-            msg += "Output file is required!"
-
-        if input_path and output_path:
-            obstacle_fields = self.get_obstacle_fields()
-
-            writer = QgsVectorFileWriter(output_path, 'UTF-8', obstacle_fields, QgsWkbTypes.Point,
+            # Create output shapefile
+            output_fields = self.get_output_fields()
+            writer = QgsVectorFileWriter(self.output_file_path, 'UTF-8', output_fields, QgsWkbTypes.Point,
                                          QgsCoordinateReferenceSystem('EPSG:4326'), 'ESRI Shapefile')
             del writer
-            input_file_name = os.path.splitext(os.path.basename(input_path))[0]
-            layer_name = os.path.splitext(os.path.basename(output_path))[0]
 
-            layer = QgsVectorLayer(output_path, layer_name, 'ogr')
+            # Map output layer fields with csv fields, before get 'not to map fields': values entered by user,
+            # not mandatory fields to skip if data is missing in csv file
+            exclude_fields = self.get_no_mapping_fields(user_value_fields)
+            field_map = self.map_csv_fields(exclude_fields)
+
+            # Create output layer, data provider for adding features to layer
+            layer_name = os.path.splitext(os.path.basename(self.output_file_path))[0]
+            layer = QgsVectorLayer(self.output_file_path, layer_name, 'ogr')
             provider = layer.dataProvider()
-
             feature = QgsFeature(layer.fields())
+            # self.assign_default_csv_field_to_controls(exclude_fields)
+            self.assign_user_value_fields(user_value_fields)
+            field_names = output_fields.names()
+            obst = Obstacle()
 
-            with open(input_path, 'r') as f:
-                self.set_log_path(input_file_name)
-                delimiter = self.dlg.comboBoxCSVDelimiter.currentText()
-                reader = csv.DictReader(f, delimiter=delimiter)
-                header = reader.fieldnames
-                field_names = obstacle_fields.names()
-
-                missing_fields = self.check_csv_fields(field_names, header)
-
-                if not missing_fields:
-                    self.disable_country_name_input_field()
-                    self.disable_vertical_uom_field()
-                    # Fields in input CSV file are the same as in output layer
-                    for row in reader:
-                        self.add_obstacle(feature, field_names, row, provider)
-                    layer.commitChanges()
-                    if self.dlg.checkBoxAddLayerToMap.isChecked():
-                        QgsProject.instance().addMapLayer(layer)
-                    QMessageBox.information(QWidget(), "Message", "Import completed.\n"
-                                                                  "Imported: {}".format(self.count_imported))
-                elif missing_fields == ["ctry_name", "vert_uom"]:
-                    self.enable_country_name_input_field()
-                    self.enable_vertical_uom_field()
-
-                    ctry_name = self.dlg.lineEditCountryName.text().strip()
-                    vert_uom = self.dlg.comboBoxVerticalUOM.currentText()
-
-                    if ctry_name and vert_uom in ['ft', 'm']:
-                        for row in reader:
-                            # Check input data
-                            row["ctry_name"] = ctry_name
-                            row["vert_uom"] = vert_uom
-                            self.add_obstacle(feature, field_names, row, provider)
-                        layer.commitChanges()
-                        if self.dlg.checkBoxAddLayerToMap.isChecked():
-                            QgsProject.instance().addMapLayer(layer)
-                        QMessageBox.information(QWidget(), "Message", "Import completed.\n"
-                                                                      "Imported: {}".format(self.count_imported))
-
+            with open(self.input_file_path, 'r') as f:
+                reader = csv.DictReader(f, delimiter=self.csv_delimiter)
+                for row in reader:
+                    self.get_source_data_from_csv_row(row, field_map)
+                    parsing_error, parsed_data = obst.parse_obstacle_data(self.obstacle_data)
+                    if parsing_error:
+                        with open(self.import_log_path, 'a') as log:
+                            log.write("{} | Line skipped. "
+                                      "Input data error: {}\n".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
+                                                                      parsing_error))
                     else:
-                        QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
-                                                                      "{}.\n"
-                                                                      "Assign country name and vertical UOM"
-                                                                      " for all imported data.".format(missing_fields))
-                elif missing_fields == ["ctry_name"]:
-                    self.enable_country_name_input_field()
-                    self.disable_vertical_uom_field()
+                        self.add_obstacle(feature, field_names, parsed_data, provider)
 
-                    ctry_name = self.dlg.lineEditCountryName.text().strip()
-
-                    if ctry_name:
-                        for row in reader:
-                            # Check input data
-                            row["ctry_name"] = ctry_name
-                            self.add_obstacle(feature, field_names, row, provider)
-                        layer.commitChanges()
-                        if self.dlg.checkBoxAddLayerToMap.isChecked():
-                            QgsProject.instance().addMapLayer(layer)
-                        QMessageBox.information(QWidget(), "Message", "Import completed.\n"
-                                                                      "Imported: {}".format(self.count_imported))
-                    else:
-                        QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
-                                                                      "{}.\n"
-                                                                      "Assign country name "
-                                                                      "for all imported data.".format(missing_fields))
-                elif missing_fields == ["vert_uom"]:
-                    self.disable_country_name_input_field()
-                    self.enable_vertical_uom_field()
-                    
-                    vert_uom = self.dlg.comboBoxVerticalUOM.currentText()
-
-                    if vert_uom in ['ft', 'm']:
-                        for row in reader:
-                            row["vert_uom"] = vert_uom
-                            self.add_obstacle(feature, field_names, row, provider)
-                        layer.commitChanges()
-                        if self.dlg.checkBoxAddLayerToMap.isChecked():
-                            QgsProject.instance().addMapLayer(layer)
-                        QMessageBox.information(QWidget(), "Message", "Import completed.\n"
-                                                                      "Imported: {}".format(self.count_imported))
-                    else:
-                        QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
-                                                                      "{}.\n"
-                                                                      "Assign vertical UOM "
-                                                                      "for all imported data.".format(missing_fields))
-                else:
-                    self.disable_country_name_input_field()
-                    self.disable_vertical_uom_field()
-
-                    QMessageBox.information(QWidget(), "Message", "Missing fields in CSV file:\n"
-                                                                  "{}.\n".format(missing_fields))
+            if self.dlg.checkBoxAddLayerToMap.isChecked():
+                QgsProject.instance().addMapLayer(layer)
+            self.dlg.pushButtonImportLog.setEnabled(True)
+            self.dlg.pushButtonImportLog.setText(self.import_log_path)
+            QMessageBox.information(QWidget(), "Message", "Import completed.\n"
+                                    "Imported: {}".format(self.count_imported))
 
         else:
-            QMessageBox.critical(QWidget(), "Message", msg)
+            QMessageBox.critical(QWidget(), "Message", self.err_msg)
 
     def run(self):
         """Run method that performs all the real work"""
@@ -404,19 +526,32 @@ class ObstacleFromCSV:
         if self.first_start == True:
             self.first_start = False
             self.dlg = ObstacleFromCSVDialog()
+
+            self.field_assignment_controls = {
+                'ctry_name': self.dlg.comboBoxCountryName,
+                'obst_ident': self.dlg.comboBoxObstacleIdent,
+                'obst_name': self.dlg.comboBoxObstacleName,
+                'obst_type': self.dlg.comboBoxObstacleType,
+                'lon_src': self.dlg.comboBoxSourceLongitude,
+                'lat_src': self.dlg.comboBoxSourceLatitude,
+                'agl': self.dlg.comboBoxAgl,
+                'amsl': self.dlg.comboBoxAmsl,
+                'vert_uom': self.dlg.comboBoxVerticalUOM
+             }
+
             self.dlg.mQgsFileWidgetInputFile.setFilter('*.csv')
             self.dlg.mQgsFileWidgetOutputFile.setFilter('*.shp')
+            self.dlg.mQgsFileWidgetInputFile.fileChanged.connect(self.reset_csv_fields_assignment)
+            self.dlg.comboBoxCSVDelimiter.currentIndexChanged.connect(self.reset_csv_fields_assignment)
+            self.dlg.comboBoxCountryName.currentIndexChanged.connect(self.change_country_name_user_entry_state)
+            self.dlg.comboBoxObstacleType.currentIndexChanged.connect(self.change_obstacle_type_user_entry_state)
+            self.dlg.comboBoxVerticalUOM.currentIndexChanged.connect(self.change_vertical_uom_user_entry_state)
             self.dlg.pushButtonImport.clicked.connect(self.import_obstacle_from_csv_file)
+            self.dlg.pushButtonImportLog.clicked.connect(self.open_import_log)
 
         # show the dialog
         self.dlg.show()
-        self.dlg.mQgsFileWidgetInputFile.lineEdit().clear()
-        self.dlg.comboBoxCSVDelimiter.setCurrentIndex(0)
-        self.dlg.mQgsFileWidgetOutputFile.lineEdit().clear()
-        self.dlg.checkBoxAddLayerToMap.setChecked(False)
-        self.disable_country_name_input_field()
-        self.disable_vertical_uom_field()
-
+        self.init_plugin()
         # Run the dialog event loop
         result = self.dlg.exec_()
         # See if OK was pressed

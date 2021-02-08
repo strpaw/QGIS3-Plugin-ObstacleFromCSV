@@ -3,8 +3,22 @@ from obstacle_from_csv.aviation_gis_tools.coordinate import *
 
 class Obstacle:
 
-    def __init__(self):
-        pass
+    def __init__(self, **kwargs):
+        self.obstacle_data = {
+
+        }
+        self.initialize_obstacle_with_data(**kwargs)
+        self.obstacle_valid = None
+        self.error_message = ''
+
+    def initialize_obstacle_with_data(self, **kwargs):
+        for attribute, value in kwargs:
+            try:
+                self.obstacle_data[attribute] = value
+            except KeyError:
+                self.obstacle_valid = False
+                self.error_message = 'Obstacle attribute error. Unknown attribute: {}'.format(attribute)
+
 
     @staticmethod
     def parse_obstacle_data(data):
@@ -26,7 +40,7 @@ class Obstacle:
 
         ctry_name = data["ctry_name"].strip()
         if ctry_name:
-            parsed_data["ctry_name"] = data["ctry_name"].strip()
+            parsed_data["ctry_name"] = ctry_name
         else:
             err_msg_list.append('Country name is required.')
 
@@ -95,3 +109,7 @@ class Obstacle:
 
         err_msg = ' '.join(err_msg_list)
         return err_msg, parsed_data
+
+
+o = Obstacle()
+print(o.obstacle_valid)
