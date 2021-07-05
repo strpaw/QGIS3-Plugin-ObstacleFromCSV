@@ -494,13 +494,14 @@ class ObstacleFromCSV:
             self.assign_user_value_fields(user_value_fields)
             field_names = output_fields.names()
             obst = Obstacle()
-
+            parsing_error_number = 0
             with open(self.input_file_path, 'r') as f:
                 reader = csv.DictReader(f, delimiter=self.csv_delimiter)
                 for row in reader:
                     self.get_source_data_from_csv_row(row, field_map)
                     parsing_error, parsed_data = obst.parse_obstacle_data(self.obstacle_data)
                     if parsing_error:
+                        parsing_error_number += 1
                         with open(self.import_log_path, 'a') as log:
                             log.write("{} | Line skipped. "
                                       "Input data error: {}\n".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
@@ -510,8 +511,14 @@ class ObstacleFromCSV:
 
             if self.dlg.checkBoxAddLayerToMap.isChecked():
                 QgsProject.instance().addMapLayer(layer)
-            self.dlg.pushButtonImportLog.setEnabled(True)
-            self.dlg.pushButtonImportLog.setText(self.import_log_path)
+
+            if parsing_error_number:
+                self.dlg.pushButtonImportLog.setEnabled(True)
+                self.dlg.pushButtonImportLog.setText(self.import_log_path)
+            else:
+                self.dlg.pushButtonImportLog.setEnabled(False)
+                self.dlg.pushButtonImportLog.setText("No errors during import.")
+
             QMessageBox.information(QWidget(), "Message", "Import completed.\n"
                                     "Imported: {}".format(self.count_imported))
 
