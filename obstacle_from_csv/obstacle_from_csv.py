@@ -453,7 +453,7 @@ class ObstacleFromCSV:
         """ Return full path to import log file - contains errors and not imported records from CSV file, example if
         there is incorrect or not supported coordinate format.
         """
-        directory = os.path.dirname(os.path.realpath(__file__))
+        directory = os.path.dirname(self.input_file_path)
         input_file_name = os.path.splitext(os.path.basename(self.input_file_path))[0]
         self.import_log_path = os.path.join(directory, "{}_import.log".format(input_file_name))
 
